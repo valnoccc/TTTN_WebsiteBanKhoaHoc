@@ -23,7 +23,7 @@ export default function LoginPage() {
             const role = data.user.role;
             if (role === 'ADMIN') navigate('/admin');
             else if (role === 'GIANG_VIEN') navigate('/instructor');
-            else navigate('/student');
+            else navigate('/');
 
         } catch (err) {
             toast.error(err.response?.data?.message || 'Tài khoản hoặc mật khẩu không đúng');
