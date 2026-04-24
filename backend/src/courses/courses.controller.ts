@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards, Request, InternalServerErrorException } from '@nestjs/common';
+import { Controller, Patch, Delete, Get, Post, Put, Body, Param, UseGuards, Request, InternalServerErrorException } from '@nestjs/common';
 import { CoursesService } from './courses.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'; 
+
 
 @Controller('courses')
 @UseGuards(JwtAuthGuard) // Bạn có thể đặt Guard ở đây để bảo vệ TẤT CẢ các API bên dưới
@@ -70,5 +71,26 @@ export class CoursesController {
       console.error('Error updating course:', error);
       throw new InternalServerErrorException('Lỗi khi cập nhật Database');
     }
+  }
+
+ @Patch(':id/status')
+  async updateStatus(@Param('id') id: string, @Request() req, @Body() statusData: any) {
+    const instructorId = req.user.sub;
+
+    const updatedCourse = await this.coursesService.updateCourseStatus(Number(id), instructorId, statusData.trang_thai);
+
+    return {
+      message: 'Cập nhật trạng thái khóa học thành công',
+      data: updatedCourse,
+    };
+  }
+  
+ @Delete(':id')
+  async remove(@Param('id') id: string, @Request() req) {
+    // Lấy ID của người dùng từ token (tùy vào cấu hình JWT của bạn, có thể là req.user.sub hoặc req.user.id)
+    const instructorId = req.user.id; // Hoặc dùng req.user.sub
+
+    // Truyền đủ 2 tham số vào service: ID khóa học và ID giảng viên
+    return this.coursesService.remove(+id, instructorId);
   }
 }
