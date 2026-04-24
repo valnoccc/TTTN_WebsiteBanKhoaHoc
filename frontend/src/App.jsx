@@ -8,6 +8,7 @@ import InstructorCourses from './pages/instructor/InstructorCourses'; // <-- TH�
 import InstructorCourseDetail from './pages/instructor/InstructorCourseDetail';
 import StudentDashboard from './pages/student/StudentDashboard';
 import HomePage from './pages/HomePage';
+import InstructorAddLesson from './pages/instructor/InstructorAddLesson';
 
 const RoleBasedRoute = ({ children, allowedRoles }) => {
   const user = JSON.parse(localStorage.getItem('user'));
@@ -58,6 +59,9 @@ function App() {
         <Route path="/student" element={
           <RoleBasedRoute allowedRoles={['HOC_VIEN']}><StudentDashboard /></RoleBasedRoute>
         } />
+
+        {/* GIẢNG VIÊN - Thêm bài học mới */}
+        <Route path="/instructor/courses/:id/lessons/new" element={<InstructorAddLesson />} />
       </Routes>
     </BrowserRouter>
   );

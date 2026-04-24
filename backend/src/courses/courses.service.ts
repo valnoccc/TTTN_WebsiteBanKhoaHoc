@@ -11,6 +11,9 @@ export class CoursesService {
     private dataSource: DataSource,
   ) { }
 
+  // ========================================================
+  // QUẢN LÝ KHÓA HỌC
+  // ========================================================
   async getCoursesByInstructor(instructorId: number) {
     return await this.khoaHocRepository.find({
       where: { id_giang_vien: instructorId },
@@ -55,9 +58,6 @@ export class CoursesService {
     return { message: 'Cập nhật trạng thái thành công' };
   }
 
-  // ========================================================
-  // HÀM LẤY CHI TIẾT 1 KHÓA HỌC (Để hiển thị lên Form sửa)
-  // ========================================================
   async getCourseById(courseId: number, instructorId: number) {
     const course = await this.khoaHocRepository.findOne({
       where: { id: courseId, id_giang_vien: instructorId }
@@ -66,26 +66,55 @@ export class CoursesService {
     if (!course) {
       throw new ForbiddenException('Không tìm thấy khóa học hoặc bạn không có quyền truy cập');
     }
-    return course;
+
+    // Đếm số học viên đã đăng ký
+    const stats = await this.dataSource.query(
+      `SELECT COUNT(DISTINCT hd.id_hoc_vien) as total_students
+       FROM chitiethoadon cthd
+       JOIN hoadon hd ON cthd.id_hoa_don = hd.id
+       WHERE cthd.id_khoa_hoc = ? AND hd.trang_thai = 'PAID'`,
+      [courseId]
+    );
+
+    return {
+      ...course,
+      studentCount: Number(stats[0].total_students) || 0
+    };
   }
 
-  // ========================================================
-  // HÀM CẬP NHẬT KHÓA HỌC THẬT SỰ
-  // ========================================================
   async updateCourse(courseId: number, instructorId: number, payload: any) {
-    // 1. Kiểm tra quyền sở hữu
     const course = await this.khoaHocRepository.findOne({
       where: { id: courseId, id_giang_vien: instructorId }
     });
 
-    if (!course) {
-      throw new ForbiddenException('Bạn không có quyền sửa khóa học này');
-    }
+    if (!course) throw new ForbiddenException('Bạn không có quyền sửa khóa học này');
 
-    // 2. Thực hiện lệnh UPDATE xuống Database
     await this.khoaHocRepository.update(courseId, payload);
-
-    // 3. Trả về dữ liệu mới sau khi đã cập nhật
     return await this.khoaHocRepository.findOne({ where: { id: courseId } });
+  }
+
+  // ========================================================
+  // QUẢN LÝ BÀI HỌC (LESSONS) - Nơi fix lỗi của bạn
+  // ========================================================
+  async createLesson(courseId: number, payload: any) {
+    const { tieu_de, noi_dung, video_url, thu_tu } = payload;
+    
+    // Thực thi lệnh INSERT vào bảng baihoc
+    await this.dataSource.query(
+      `INSERT INTO baihoc (id_khoa_hoc, tieu_de, noi_dung, video_url, thu_tu) 
+       VALUES (?, ?, ?, ?, ?)`,
+      [courseId, tieu_de, noi_dung, video_url, thu_tu || 1]
+    );
+
+    return { message: 'Thêm bài học thành công' };
+  }
+
+  async getLessonsByCourse(courseId: number) {
+    // Truy vấn lấy các bài học và sắp xếp theo thứ tự hiển thị
+    const lessons = await this.dataSource.query(
+      `SELECT * FROM baihoc WHERE id_khoa_hoc = ? ORDER BY thu_tu ASC`,
+      [courseId]
+    );
+    return lessons;
   }
 }

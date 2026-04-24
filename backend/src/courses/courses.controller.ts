@@ -26,6 +26,21 @@ export class CoursesController {
     return { message: 'Lấy thông tin khóa học thành công', data: course };
   }
 
+  // ---------------------------------------------------------
+  // API: QUẢN LÝ BÀI HỌC (LESSONS)
+  // ---------------------------------------------------------
+  @Post(':id/lessons')
+  async createLesson(@Param('id') courseId: string, @Body() lessonData: any) {
+    await this.coursesService.createLesson(Number(courseId), lessonData);
+    return { message: 'Đã lưu bài học thành công' };
+  }
+
+  @Get(':id/lessons')
+  async getLessons(@Param('id') courseId: string) {
+    const lessons = await this.coursesService.getLessonsByCourse(Number(courseId));
+    return { message: 'Lấy danh sách bài học thành công', data: lessons };
+  }
+
   @Post()
   @UseInterceptors(FileInterceptor('image', {
     storage: diskStorage({
