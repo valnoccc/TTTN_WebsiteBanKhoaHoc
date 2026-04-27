@@ -6,6 +6,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import InstructorDashboard from './pages/instructor/InstructorDashboard';
 import InstructorCourses from './pages/instructor/InstructorCourses'; // <-- THÊM DÒNG NÀY
 import InstructorCourseDetail from './pages/instructor/InstructorCourseDetail';
+import AddLesson from './pages/instructor/AddLesson';
 import StudentDashboard from './pages/student/StudentDashboard';
 import HomePage from './pages/HomePage';
 
@@ -51,6 +52,13 @@ function App() {
         <Route path="/instructor/courses/:id" element={
           <RoleBasedRoute allowedRoles={['GIANG_VIEN']}>
             <InstructorCourseDetail />
+          </RoleBasedRoute>
+        } />
+
+        {/* GIẢNG VIÊN - Thêm bài học */}
+        <Route path="/instructor/lessons/:id" element={
+          <RoleBasedRoute allowedRoles={['GIANG_VIEN']}>
+            <AddLesson />
           </RoleBasedRoute>
         } />
 

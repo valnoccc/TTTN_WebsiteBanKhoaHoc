@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
-import { User } from './users/entities/user.entity';
-import { KhoaHoc } from './courses/entities/course.entity';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { CoursesModule } from './courses/courses.module';
+import { LessonsModule } from './lessons/lessons.module';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -17,12 +17,15 @@ import { CoursesModule } from './courses/courses.module';
       username: process.env.DB_USER,
       password: process.env.DB_PASS,
       database: process.env.DB_NAME,
-      entities: [User, KhoaHoc], // Khai báo các bảng sẽ dùng
-      synchronize: false, // Để false vì đã chạy SQL tay ở trên. (Nếu để true, Nest tự tạo bảng)
+      // Tự động quét tất cả các file entity trong project
+      entities: [__dirname + '/**/*.entity{.ts,.js}'],
+      synchronize: false, // Giữ false để tránh NestJS tự ý sửa cấu trúc DB hiện tại của bạn
     }),
     UsersModule,
     AuthModule,
     CoursesModule,
+    LessonsModule,
+    CloudinaryModule,
   ],
 })
 export class AppModule { }

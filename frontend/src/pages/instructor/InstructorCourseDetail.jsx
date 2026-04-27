@@ -174,7 +174,9 @@ export default function InstructorCourseDetail() {
                             <section className="bg-white dark:bg-[#1E2329] border border-[#DFE1E6] dark:border-slate-800 rounded-xl p-6 shadow-sm">
                                 <div className="flex justify-between items-center mb-6 pb-4 border-b border-[#F4F5F7] dark:border-slate-800">
                                     <h3 className="text-[20px] font-semibold text-[#172B4D] dark:text-white">Chương trình học</h3>
-                                    <button className="text-[#0052CC] text-[14px] font-semibold flex items-center gap-1 hover:underline">
+                                    <button
+                                        onClick={() => navigate(`/instructor/lessons/${id}`)}
+                                        className="text-[#0052CC] text-[14px] font-semibold flex items-center gap-1 hover:underline">
                                         <Plus size={16} /> Thêm chương mới
                                     </button>
                                 </div>
