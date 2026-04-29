@@ -1,6 +1,9 @@
 import {
   Controller, Post, Body, UseInterceptors, UploadedFile,
-  UseGuards, Request, InternalServerErrorException, Get, Query
+  UseGuards, Request, InternalServerErrorException, Get, Param,
+  ParseIntPipe, NotFoundException, // <-- Thêm 2 cái này vào đây
+  Query,
+  Put
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { LessonsService } from './lessons.service';
@@ -65,4 +68,43 @@ export class LessonsController {
     }
   }
 
+  @Get(':id')
+  @UseGuards(JwtAuthGuard) // Đảm bảo người dùng phải đăng nhập mới xem được nội dung
+  async getLessonDetail(@Param('id', ParseIntPipe) id: number) {
+    const lesson = await this.lessonsService.findOne(id);
+    if (!lesson) {
+      throw new NotFoundException('Không tìm thấy bài học này');
+    }
+    return {
+      message: 'Lấy chi tiết bài học thành công',
+      data: lesson,
+    };
+  }
+
+  @Put(':id')
+  @UseInterceptors(FileInterceptor('video')) // Bắt trường 'video' từ FormData
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: any,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    // 1. Chuẩn bị dữ liệu cập nhật
+    const updateData = {
+      tieu_de: body.tieu_de,
+      noi_dung: body.noi_dung,
+      thu_tu: body.thu_tu ? Number(body.thu_tu) : undefined,
+      id_khoa_hoc: body.id_khoa_hoc ? Number(body.id_khoa_hoc) : undefined,
+    };
+
+    // 2. Xử lý video mới (nếu có)
+    if (file) {
+      // Tải video mới lên Cloudinary
+      const uploadResult = await this.cloudinaryService.uploadFile(file, 'video');
+      // Thêm link video mới vào payload cập nhật
+      updateData['video_url'] = uploadResult.secure_url;
+    }
+
+    // 3. Gọi Service để thực hiện cập nhật vào MySQL
+    return this.lessonsService.update(id, updateData);
+  }
 }

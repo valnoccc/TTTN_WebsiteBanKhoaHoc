@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import InstructorLayout from '../../layouts/InstructorLayout';
 import axiosClient from '../../api/axios';
-import { FileEdit, UploadCloud, ChevronDown, AlertTriangle, Bold, Italic, List, Link as LinkIcon, Code, GripVertical, Plus } from 'lucide-react';
+import { FileEdit, UploadCloud, ChevronDown, AlertTriangle, Bold, Italic, List, Link as LinkIcon, Code, GripVertical, Plus, Trash2 } from 'lucide-react';
 
 export default function InstructorCourseDetail() {
     const { id } = useParams();
@@ -104,6 +104,18 @@ export default function InstructorCourseDetail() {
         }
     };
 
+    const handleDeleteLesson = async (lessonId) => {
+        if (!window.confirm("Bạn có chắc chắn muốn xóa bài học này? Hành động này không thể hoàn tác.")) return;
+        try {
+            await axiosClient.delete(`/lessons/${lessonId}`);
+            toast.success("Đã xóa bài học thành công!");
+            // Cập nhật lại danh sách ngay lập tức mà không cần load lại trang
+            setLessons(prev => prev.filter(lesson => lesson.id !== lessonId));
+        } catch (error) {
+            toast.error("Lỗi khi xóa bài học");
+        }
+    };
+
     const confirmDelete = async () => {
         setIsDeleteModalOpen(false);
         try {
@@ -200,7 +212,7 @@ export default function InstructorCourseDetail() {
                                 <div className="space-y-3">
                                     {lessons.length > 0 ? (
                                         lessons.map((lesson, index) => (
-                                            <div key={lesson.id} className="flex items-center gap-4 p-4 border border-[#DFE1E6] dark:border-slate-700 rounded-lg bg-white dark:bg-[#14181D] hover:bg-[#F0F5FF] dark:hover:bg-slate-800 transition-colors group cursor-move">
+                                            <div key={lesson.id} className="flex items-center gap-4 p-4 border border-[#DFE1E6] dark:border-slate-700 rounded-lg bg-white dark:bg-[#14181D] hover:border-blue-300 transition-colors group cursor-move">
                                                 <GripVertical className="text-[#6B778C] dark:text-slate-500" size={20} />
                                                 <span className="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded text-xs font-bold text-slate-500">
                                                     {String(index + 1).padStart(2, '0')}
@@ -209,7 +221,25 @@ export default function InstructorCourseDetail() {
                                                     <p className="text-[14px] font-semibold text-[#172B4D] dark:text-slate-200">{lesson.tieu_de}</p>
                                                     <p className="text-[10px] text-[#6B778C] mt-0.5">{lesson.video_url ? '1 Video' : 'Chưa có video'}</p>
                                                 </div>
-                                                <FileEdit className="text-[#6B778C] opacity-0 group-hover:opacity-100 cursor-pointer" size={18} />
+
+                                                {/* --- CẬP NHẬT: LUÔN HIỂN THỊ NÚT THAO TÁC --- */}
+                                                <div className="flex items-center gap-2 transition-all duration-200">
+                                                    <button
+                                                        onClick={() => navigate(`/instructor/lesson-detail/${lesson.id}`)}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-600 hover:text-white rounded-md transition-all shadow-sm"
+                                                    >
+                                                        <FileEdit size={14} />
+                                                        <span className="text-[12px] font-semibold">Sửa</span>
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => handleDeleteLesson(lesson.id)}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 hover:bg-red-600 hover:text-white rounded-md transition-all shadow-sm"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                        <span className="text-[12px] font-semibold">Xóa</span>
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))
                                     ) : (
