@@ -23,7 +23,7 @@ export class KhoaHoc {
         enum: ['DRAFT', 'PENDING', 'PUBLISHED', 'HIDDEN'],
         default: 'DRAFT',
     })
-    trang_thai: string;
+    trang_thai!: string;
 
     @Column({ nullable: true })
     id_danh_muc!: number;

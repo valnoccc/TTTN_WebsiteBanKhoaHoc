@@ -2,12 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import InstructorLayout from '../../layouts/InstructorLayout';
 import axiosClient from '../../api/axios';
-import { 
-    FileEdit, UploadCloud, ChevronDown, AlertTriangle, Bold, Italic, 
-    List, Link as LinkIcon, Code, GripVertical, Plus, 
-    Users, ChevronRight, Lock, Rocket, EyeOff, FileText 
-} from 'lucide-react';
-import toast from 'react-hot-toast';
+
+import { FileEdit, UploadCloud, ChevronDown, AlertTriangle, Bold, Italic, List, Link as LinkIcon, Code, Plus, Trash2, Image as ImageIcon } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+
 
 export default function InstructorCourseDetail() {
     const { id } = useParams();
@@ -20,14 +18,15 @@ export default function InstructorCourseDetail() {
         price: 0,
         category: 'Web Development',
         image: '',
-        trang_thai: 'DRAFT',
-        file_anh_that: null
+
+        trang_thai: 'DRAFT', // Mặc định là DRAFT cho khóa học mới
+
     });
 
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [errorText, setErrorText] = useState('');
     const [imagePreview, setImagePreview] = useState(null);
-    const [studentCount, setStudentCount] = useState(0); // State lưu số học viên thật
+
     const [lessons, setLessons] = useState([]);
 
     useEffect(() => {
@@ -42,16 +41,11 @@ export default function InstructorCourseDetail() {
                         description: courseData.mo_ta || '',
                         price: courseData.gia || 0,
                         category: courseData.id_danh_muc === 1 ? 'Web Development' : 'Data Science',
+
+                        hinh_anh: courseData.hinh_anh || '',
                         trang_thai: courseData.trang_thai || 'DRAFT',
-                        hinh_anh: courseData.hinh_anh || ''
                     });
-
-                    // Cập nhật preview ảnh cũ và số lượng học viên
                     if (courseData.hinh_anh) setImagePreview(courseData.hinh_anh);
-                    setStudentCount(courseData.studentCount || 0);
-
-                    const lessonsResponse = await axiosClient.get(`/courses/${id}/lessons`);
-                    setLessons(lessonsResponse.data.data || []);
 
                 } catch (error) {
                     console.error('Lỗi khi tải thông tin:', error);
@@ -59,6 +53,21 @@ export default function InstructorCourseDetail() {
             }
         };
         fetchCourseDetail();
+    }, [id, isNewCourse]);
+
+    useEffect(() => {
+        const fetchLessons = async () => {
+            if (!isNewCourse) {
+                try {
+                    const response = await axiosClient.get(`/lessons?id_khoa_hoc=${id}`);
+                    const lessonsData = Array.isArray(response.data.data) ? response.data.data : response.data;
+                    setLessons(lessonsData.sort((a, b) => a.thu_tu - b.thu_tu));
+                } catch (error) {
+                    console.error('Lỗi khi tải bài học:', error);
+                }
+            }
+        };
+        fetchLessons();
     }, [id, isNewCourse]);
 
     const handleChange = (e) => {
@@ -81,7 +90,6 @@ export default function InstructorCourseDetail() {
             data.append('gia', formData.price);
             data.append('id_danh_muc', formData.category === 'Web Development' ? 1 : 2);
 
-            // Gửi file ảnh nếu người dùng có chọn ảnh mới
             if (formData.file_anh_that) {
                 data.append('image', formData.file_anh_that);
             }
@@ -114,11 +122,42 @@ export default function InstructorCourseDetail() {
         }
     };
 
+    const handleDeleteLesson = async (lessonId) => {
+        if (!window.confirm("Bạn có chắc chắn muốn xóa bài học này?")) return;
+        try {
+            await axiosClient.delete(`/lessons/${lessonId}`);
+            toast.success("Đã xóa bài học thành công!");
+            setLessons(prev => prev.filter(lesson => lesson.id !== lessonId));
+        } catch (error) {
+            toast.error("Lỗi khi xóa bài học");
+        }
+    };
+
+    const handleStatusChange = async (newStatus) => {
+        const confirmMsg = newStatus === 'PENDING'
+            ? "Gửi yêu cầu duyệt? Khóa học sẽ bị khóa chỉnh sửa cho đến khi Admin phản hồi."
+            : "Tạm ngưng xuất bản? Khóa học sẽ bị ẩn khỏi trang chủ để bạn chỉnh sửa.";
+
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+            await axiosClient.patch(`/courses/${id}/status`, { trang_thai: newStatus });
+            toast.success("Đã cập nhật trạng thái!");
+            setFormData(prev => ({ ...prev, trang_thai: newStatus }));
+        } catch (error) {
+            toast.error("Lỗi khi cập nhật trạng thái");
+        }
+    };
+
+    // BIẾN KIỂM TRA KHÓA FORM
+    const isLocked = ['PENDING', 'PUBLISHED'].includes(formData.trang_thai);
+
     return (
         <InstructorLayout>
-            <div className="p-8 max-w-[1280px] mx-auto w-full text-[#101c2d]">
-                
-                {/* Header */}
+
+            <div className="p-8 max-w-[1280px] mx-auto w-full">
+                {/* Header Section */}
+
                 <div className="mb-8">
                     <div className="flex items-center gap-2 text-[12px] font-semibold text-[#6B778C] mb-2">
                         <span className="cursor-pointer hover:text-[#0052CC]" onClick={() => navigate('/instructor/courses')}>Courses</span>
@@ -132,34 +171,70 @@ export default function InstructorCourseDetail() {
                             </h2>
                             <p className="text-[16px] text-[#6B778C] mt-1">Thiết lập chương trình học, giá cả và hiển thị.</p>
                         </div>
-                        <div className="flex gap-3">
-                            {!isNewCourse && (
-                                <button
-                                    onClick={() => setIsDeleteModalOpen(true)}
-                                    className="px-6 py-2 border border-red-200 text-red-600 rounded-lg text-[14px] font-semibold hover:bg-red-50 transition-colors">
-                                    Xóa
-                                </button>
+
+
+                        {/* Khu vực nút bấm và Banner */}
+                        <div className="flex flex-col items-end gap-3">
+                            {/* Banner khi chờ duyệt */}
+                            {formData.trang_thai === 'PENDING' && (
+                                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-2 rounded-lg flex items-center gap-4 shadow-sm">
+                                    <span className="text-sm font-medium">Đang chờ Admin duyệt. Khóa học tạm thời bị khóa chỉnh sửa.</span>
+                                    <button onClick={() => handleStatusChange('DRAFT')} className="px-3 py-1.5 bg-white border border-yellow-300 rounded-md text-xs font-bold hover:bg-yellow-100 transition-colors">
+                                        Hủy yêu cầu
+                                    </button>
+                                </div>
                             )}
-                            <button
-                                onClick={() => navigate('/instructor/courses')}
-                                className="px-6 py-2 border border-[#DFE1E6] rounded-lg text-[14px] font-semibold text-[#172B4D] hover:bg-[#F4F5F7] transition-colors">
-                                Hủy
-                            </button>
-                            <button
-                                onClick={handleSave}
-                                className="px-6 py-2 bg-[#0052CC] text-white rounded-lg text-[14px] font-semibold shadow-lg shadow-[#0052CC]/20 hover:opacity-90 transition-opacity">
-                                Lưu thay đổi
-                            </button>
+
+                            {/* Banner khi đã xuất bản */}
+                            {formData.trang_thai === 'PUBLISHED' && (
+                                <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-2 rounded-lg flex items-center gap-4 shadow-sm">
+                                    <span className="text-sm font-medium">Khóa học đã được xuất bản trên hệ thống.</span>
+                                    <button onClick={() => handleStatusChange('HIDDEN')} className="px-3 py-1.5 bg-white border border-green-300 rounded-md text-xs font-bold hover:bg-green-100 transition-colors">
+                                        Tạm ẩn để sửa
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Cụm nút bấm chính */}
+                            <div className="flex gap-3 mt-1">
+                                <button
+                                    onClick={() => navigate('/instructor/courses')}
+                                    className="px-6 py-2 border border-[#DFE1E6] dark:border-slate-700 rounded-lg text-[14px] font-semibold text-[#172B4D] dark:text-slate-300 hover:bg-[#F4F5F7] dark:hover:bg-slate-800 transition-colors">
+                                    Quay lại
+                                </button>
+
+                                {/* Chỉ hiện nút Lưu và Gửi duyệt nếu KHÔNG bị khóa */}
+                                {!isLocked && (
+                                    <>
+                                        <button
+                                            onClick={handleSave}
+                                            className="px-6 py-2 border border-[#0052CC] text-[#0052CC] rounded-lg text-[14px] font-semibold hover:bg-blue-50 transition-colors">
+                                            Lưu bản nháp
+                                        </button>
+                                        {!isNewCourse && (
+                                            <button
+                                                onClick={() => handleStatusChange('PENDING')}
+                                                className="px-6 py-2 bg-[#0052CC] text-white rounded-lg text-[14px] font-semibold shadow-lg shadow-[#0052CC]/20 hover:opacity-90 transition-opacity">
+                                                Gửi yêu cầu duyệt
+                                            </button>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                    <div className="col-span-12 md:col-span-8 space-y-6">
-                        
-                        {/* Basic Info Card */}
-                        <section className="bg-white border border-[#DFE1E6] rounded-xl p-6 shadow-sm">
-                            <div className="flex items-center gap-2 mb-6 pb-4 border-b border-[#F4F5F7]">
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+                    {/* ================= CỘT TRÁI: Form Nhập liệu & Ảnh ================= */}
+                    <div className="md:col-span-8 space-y-6">
+
+                        {/* 1. Thông tin cơ bản */}
+                        <section className="bg-white dark:bg-[#1E2329] border border-[#DFE1E6] dark:border-slate-800 rounded-xl p-6 shadow-sm">
+                            <div className="flex items-center gap-2 mb-6 pb-4 border-b border-[#F4F5F7] dark:border-slate-800">
+
                                 <FileEdit className="text-[#0052CC]" size={20} />
                                 <h3 className="text-[20px] font-semibold text-[#172B4D]">Thông tin cơ bản</h3>
                             </div>
@@ -170,26 +245,35 @@ export default function InstructorCourseDetail() {
                                         name="title"
                                         value={formData.title}
                                         onChange={handleChange}
-                                        className={`w-full px-4 py-3 border ${errorText ? 'border-[#ba1a1a]' : 'border-[#DFE1E6]'} rounded-lg focus:ring-2 focus:ring-[#0052CC] outline-none text-[16px]`} 
-                                        placeholder="Nhập tên khóa học" 
+
+                                        disabled={isLocked}
+                                        className={`w-full px-4 py-3 bg-[#F4F5F7] dark:bg-[#14181D] border-none rounded-lg focus:ring-2 focus:ring-[#0052CC]/20 outline-none text-[#172B4D] dark:text-white text-[16px] transition-all ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                        type="text"
+                                        placeholder="Nhập tên khóa học"
+
                                     />
                                     {errorText && <p className="text-[#ba1a1a] text-sm mt-1">{errorText}</p>}
                                 </div>
                                 <div>
-                                    <label className="block text-[14px] font-semibold text-[#172B4D] mb-2">Mô tả khóa học</label>
-                                    <div className="border border-[#DFE1E6] rounded-lg overflow-hidden">
-                                        <div className="bg-[#F4F5F7] px-4 py-2 flex gap-4 border-b border-[#DFE1E6]">
-                                            <button className="text-[#6B778C] hover:text-[#0052CC]"><Bold size={16} /></button>
-                                            <button className="text-[#6B778C] hover:text-[#0052CC]"><Italic size={16} /></button>
-                                            <button className="text-[#6B778C] hover:text-[#0052CC]"><List size={16} /></button>
-                                            <button className="text-[#6B778C] hover:text-[#0052CC]"><LinkIcon size={16} /></button>
-                                            <button className="text-[#6B778C] hover:text-[#0052CC]"><Code size={16} /></button>
+
+                                    <label className="block text-[14px] font-semibold text-[#172B4D] dark:text-slate-300 mb-2">Mô tả khóa học</label>
+                                    <div className={`border border-[#DFE1E6] dark:border-slate-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-[#0052CC]/20 transition-all ${isLocked ? 'opacity-60' : ''}`}>
+                                        <div className="bg-[#F4F5F7] dark:bg-[#1A1D21] px-4 py-2 flex gap-4 border-b border-[#DFE1E6] dark:border-slate-700">
+                                            <button disabled={isLocked} className="text-[#6B778C] hover:text-[#0052CC] disabled:cursor-not-allowed"><Bold size={16} /></button>
+                                            <button disabled={isLocked} className="text-[#6B778C] hover:text-[#0052CC] disabled:cursor-not-allowed"><Italic size={16} /></button>
+                                            <button disabled={isLocked} className="text-[#6B778C] hover:text-[#0052CC] disabled:cursor-not-allowed"><List size={16} /></button>
+                                            <button disabled={isLocked} className="text-[#6B778C] hover:text-[#0052CC] disabled:cursor-not-allowed"><LinkIcon size={16} /></button>
+                                            <button disabled={isLocked} className="text-[#6B778C] hover:text-[#0052CC] disabled:cursor-not-allowed"><Code size={16} /></button>
+
                                         </div>
                                         <textarea 
                                             name="description"
                                             value={formData.description}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-3 border-none focus:ring-0 text-[14px] leading-relaxed outline-none" 
+
+                                            disabled={isLocked}
+                                            className={`w-full px-4 py-3 bg-white dark:bg-[#14181D] border-none focus:ring-0 text-[#172B4D] dark:text-slate-300 text-[14px] leading-relaxed outline-none resize-none ${isLocked ? 'cursor-not-allowed bg-gray-50 dark:bg-gray-800' : ''}`}
+
                                             rows="8"
                                         />
                                     </div>
@@ -197,110 +281,12 @@ export default function InstructorCourseDetail() {
                             </div>
                         </section>
 
-                        {/* Curriculum Snapshot */}
-                        {!isNewCourse && (
-                            <section className="bg-white border border-[#DFE1E6] rounded-xl p-6 shadow-sm">
-                                <div className="flex justify-between items-center mb-6 pb-4 border-b border-[#F4F5F7]">
-                                    <div className="flex items-center gap-2">
-                                        <List className="text-[#0052CC]" size={20} />
-                                        <h3 className="text-[20px] font-semibold text-[#172B4D]">Chương trình học</h3>
-                                    </div>
-                                    <button 
-                                        onClick={() => navigate(`/instructor/courses/${id}/lessons/new`)}
-                                        className="text-[#0052CC] text-[14px] font-semibold flex items-center gap-1 hover:underline"
-                                    >
-                                        <Plus size={16} /> Thêm bài học
-                                    </button>
-                                </div>
-                                <div className="space-y-3">
-                                    {lessons.length > 0 ? (
-                                        lessons.map((lesson, index) => (
-                                            <div key={lesson.id} className="flex items-center gap-4 p-4 border border-[#DFE1E6] rounded-lg bg-white hover:bg-[#F0F5FF] transition-colors group cursor-move">
-                                                <GripVertical className="text-[#6B778C]" size={20} />
-                                                <span className="w-8 h-8 flex items-center justify-center bg-slate-100 rounded text-xs font-bold text-slate-500">
-                                                    {String(lesson.thu_tu).padStart(2, '0')} {/* Hiển thị 01, 02... */}
-                                                </span>
-                                                <div className="flex-1">
-                                                    <p className="text-[14px] font-semibold text-[#172B4D]">{lesson.tieu_de}</p>
-                                                    {/* Có thể hiển thị thêm thời lượng video nếu muốn */}
-                                                </div>
-                                                <FileEdit className="text-[#6B778C] opacity-0 group-hover:opacity-100 cursor-pointer hover:text-[#0052CC]" size={18} />
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="text-center p-6 border-2 border-dashed border-[#DFE1E6] rounded-lg bg-[#F4F5F7]">
-                                            <p className="text-[13px] text-[#6B778C]">Khóa học này chưa có bài học nào.</p>
-                                            <p className="text-[13px] text-[#6B778C]">Bấm "Thêm bài học" để bắt đầu xây dựng nội dung.</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </section>
-                        )}
-                    </div>
+                        {/* 2. Ảnh minh họa */}
+                        <section className="bg-white dark:bg-[#1E2329] border border-[#DFE1E6] dark:border-slate-800 rounded-xl p-6 shadow-sm">
+                            <div className="flex items-center gap-2 mb-6">
+                                <ImageIcon className="text-[#0052CC]" size={20} />
+                                <h3 className="text-[18px] font-semibold text-[#172B4D] dark:text-white">Hình ảnh minh họa</h3>
 
-                    <div className="col-span-12 md:col-span-4 space-y-6">
-                        
-                        {/* Khối Học Viên */}
-                        {!isNewCourse && (
-                            <a href="#" className="block bg-white border border-[#DFE1E6] rounded-xl p-6 shadow-sm hover:border-[#0052CC] hover:shadow-md transition-all group">
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-2">
-                                        <Users className="text-[#0052CC]" size={20} />
-                                        <label className="block text-[14px] font-semibold text-[#172B4D]">Học viên đăng ký</label>
-                                    </div>
-                                    <span className="text-[#0052CC] text-[12px] font-semibold group-hover:underline flex items-center">
-                                        Xem chi tiết <ChevronRight size={14} className="ml-0.5" />
-                                    </span>
-                                </div>
-                                <div className="flex items-end gap-3">
-                                    <span className="text-3xl font-bold text-[#172B4D]">
-                                        {studentCount.toLocaleString('vi-VN')}
-                                    </span>
-                                    <span className="text-[#6B778C] text-[14px] mb-1">học viên</span>
-                                </div>
-                                {studentCount > 0 ? (
-                                    <div className="mt-4 flex -space-x-2">
-                                        {studentCount >= 1 && <img alt="student 1" className="w-8 h-8 rounded-full border-2 border-white" src="https://ui-avatars.com/api/?name=Student+1&background=random" />}
-                                        {studentCount >= 2 && <img alt="student 2" className="w-8 h-8 rounded-full border-2 border-white" src="https://ui-avatars.com/api/?name=Student+2&background=random" />}
-                                        {studentCount > 2 && (
-                                            <div className="w-8 h-8 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">
-                                                +{studentCount - 2}
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <p className="mt-4 text-[12px] text-[#6B778C] italic">Chưa có học viên nào mua khóa học này.</p>
-                                )}
-                            </a>
-                        )}
-
-                        {/* Media Card (ĐÃ ĐỒNG BỘ LOGIC ẢNH) */}
-                        <section className="bg-white border border-[#DFE1E6] rounded-xl p-6 shadow-sm">
-                            <label className="block text-[14px] font-semibold text-[#172B4D] mb-4">Hình ảnh khóa học</label>
-                            <div 
-                                onClick={() => document.getElementById('fileInput').click()}
-                                className="relative group aspect-video bg-[#F4F5F7] rounded-lg border-2 border-dashed border-[#DFE1E6] overflow-hidden flex flex-col items-center justify-center cursor-pointer hover:border-[#0052CC] transition-colors">
-                                
-                                {imagePreview ? (
-                                    <>
-                                        <img 
-                                            src={imagePreview} 
-                                            alt="Course Preview" 
-                                            className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform" 
-                                            onError={(e) => { e.target.style.display = 'none'; }}
-                                        />
-                                        <div className="relative z-10 flex flex-col items-center bg-white/90 backdrop-blur p-4 rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <UploadCloud className="text-[#0052CC] mb-2" size={24} />
-                                            <p className="text-[12px] font-semibold text-[#172B4D]">Thay đổi hình ảnh</p>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <div className="relative z-10 flex flex-col items-center p-4 rounded-xl">
-                                        <UploadCloud className="text-[#0052CC] mb-2" size={32} />
-                                        <p className="text-[12px] font-semibold text-[#172B4D]">Nhấn để tải ảnh lên</p>
-                                        <p className="text-[10px] text-[#6B778C] mt-1">PNG, JPG (Tối đa 5MB)</p>
-                                    </div>
-                                )}
                             </div>
                             <input 
                                 type="file" id="fileInput" className="hidden" accept="image/*"
@@ -314,27 +300,79 @@ export default function InstructorCourseDetail() {
                                     }
                                 }}
                             />
-                        </section>
 
-                        <section className="bg-white border border-[#DFE1E6] rounded-xl p-6 shadow-sm space-y-6">
+                            {imagePreview || formData.hinh_anh ? (
+                                <div className="space-y-4 border border-[#DFE1E6] dark:border-slate-700 rounded-xl p-4 bg-[#F4F5F7] dark:bg-[#14181D]">
+                                    <div className="rounded-lg overflow-hidden flex justify-center w-full bg-black aspect-[21/9] shadow-inner relative">
+                                        <img
+                                            src={imagePreview || formData.hinh_anh}
+                                            alt="Preview"
+                                            className="w-full h-full object-cover opacity-90"
+                                            onError={(e) => { e.target.style.display = 'none'; }}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between items-center pt-2">
+                                        <p className="text-xs text-[#6B778C] italic truncate max-w-[300px]">
+                                            {formData.file_anh_that ? `Đã chọn: ${formData.file_anh_that.name}` : "Ảnh hiện tại của khóa học"}
+                                        </p>
+                                        <button
+                                            onClick={() => !isLocked && document.getElementById('fileInput').click()}
+                                            disabled={isLocked}
+                                            className={`flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1E2329] text-[#172B4D] dark:text-white rounded-lg text-sm font-semibold transition-colors border border-[#DFE1E6] dark:border-slate-700 shadow-sm ${isLocked ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-50 hover:text-blue-600'}`}
+                                        >
+                                            <UploadCloud size={16} /> Thay đổi ảnh
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div
+                                    onClick={() => !isLocked && document.getElementById('fileInput').click()}
+                                    className={`group relative border-2 border-dashed border-[#DFE1E6] dark:border-slate-700 rounded-2xl p-10 text-center transition-all aspect-[21/9] flex flex-col items-center justify-center bg-[#F4F5F7] dark:bg-[#14181D] ${isLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:border-blue-400 hover:bg-blue-50/30'}`}
+                                >
+                                    <UploadCloud className="text-[#0052CC] mx-auto mb-4" size={32} />
+                                    <p className="font-bold text-[#172B4D] dark:text-slate-300">Nhấn để tải ảnh khóa học lên</p>
+                                    <p className="text-[13px] text-[#6B778C] mt-2">Định dạng hỗ trợ: JPG, PNG (Tối đa 5MB)</p>
+                                </div>
+                            )}
+                        </section>
+                    </div>
+
+                    {/* ================= CỘT PHẢI: Cài đặt & Danh sách bài học ================= */}
+                    <div className="md:col-span-4 space-y-6">
+
+                        {/* 1. Thiết lập giá & Danh mục */}
+                        <section className="bg-white dark:bg-[#1E2329] border border-[#DFE1E6] dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-6">
+
                             <div>
                                 <label className="block text-[14px] font-semibold text-[#172B4D] mb-2">Giá khóa học</label>
                                 <div className="relative">
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-[#0052CC]">VNĐ</span>
-                                    <input 
-                                        name="price" type="number" value={formData.price} onChange={handleChange}
-                                        className="w-full pl-16 pr-4 py-3 border border-[#DFE1E6] rounded-lg focus:ring-2 focus:ring-[#0052CC] outline-none text-[14px] font-semibold" 
+
+                                    <input
+                                        name="price"
+                                        type="number"
+                                        value={formData.price}
+                                        onChange={handleChange}
+                                        disabled={isLocked}
+                                        className={`w-full pl-16 pr-4 py-3 bg-[#F4F5F7] dark:bg-[#14181D] border-none rounded-lg focus:ring-2 focus:ring-[#0052CC]/20 outline-none text-[#172B4D] dark:text-white text-[15px] font-bold ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
+
                                     />
                                 </div>
                             </div>
                             <div>
                                 <label className="block text-[14px] font-semibold text-[#172B4D] mb-2">Danh mục</label>
                                 <div className="relative">
-                                    <select 
-                                        name="category" value={formData.category} onChange={handleChange}
-                                        className="w-full px-4 py-3 border border-[#DFE1E6] rounded-lg appearance-none focus:ring-2 focus:ring-[#0052CC] outline-none text-[14px]">
-                                        <option value="Web Development">Web Development</option>
-                                        <option value="Data Science">Data Science</option>
+
+                                    <select
+                                        name="category"
+                                        value={formData.category}
+                                        onChange={handleChange}
+                                        disabled={isLocked}
+                                        className={`w-full px-4 py-3 bg-[#F4F5F7] dark:bg-[#14181D] border-none rounded-lg appearance-none focus:ring-2 focus:ring-[#0052CC]/20 outline-none text-[#172B4D] dark:text-white text-[14px] ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                    >
+                                        <option>Web Development</option>
+                                        <option>Data Science</option>
+
                                     </select>
                                     <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#6B778C]" size={16} />
                                 </div>
@@ -355,26 +393,71 @@ export default function InstructorCourseDetail() {
                             )}
                         </section>
 
-                        {/* Status Chip */}
+
+                        {/* 2. Danh sách bài học */}
                         {!isNewCourse && (
-                            <section className="bg-[#F0F5FF] border border-[#0052CC]/20 rounded-xl p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-[10px] uppercase font-bold text-[#0052CC] tracking-widest mb-1">Trạng thái hiện tại</p>
-                                        <h4 className="text-[20px] font-semibold text-[#003d9b]">
-                                            {formData.trang_thai === 'PUBLISHED' ? 'Đang phát hành' : 
-                                             formData.trang_thai === 'HIDDEN' ? 'Đã ẩn' : 'Bản nháp'}
-                                        </h4>
-                                    </div>
-                                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-inner">
-                                        {formData.trang_thai === 'PUBLISHED' ? (
-                                            <Rocket className="text-[#0052CC]" size={24} />
-                                        ) : formData.trang_thai === 'HIDDEN' ? (
-                                            <EyeOff className="text-[#0052CC]" size={24} />
-                                        ) : (
-                                            <FileText className="text-[#0052CC]" size={24} />
-                                        )}
-                                    </div>
+                            <section className="bg-white dark:bg-[#1E2329] border border-[#DFE1E6] dark:border-slate-800 rounded-xl p-5 shadow-sm sticky top-6">
+                                <div className="flex justify-between items-center mb-4 pb-3 border-b border-[#F4F5F7] dark:border-slate-800">
+                                    <h3 className="text-[16px] font-bold text-[#172B4D] dark:text-white">Chương trình học ({lessons.length})</h3>
+
+                                    {/* Ẩn nút Thêm bài học nếu đang bị khóa */}
+                                    {!isLocked && (
+                                        <button
+                                            onClick={() => navigate(`/instructor/lessons/${id}`)}
+                                            className="w-8 h-8 flex items-center justify-center bg-blue-50 text-[#0052CC] hover:bg-blue-600 hover:text-white rounded-full transition-colors"
+                                            title="Thêm bài học mới"
+                                        >
+                                            <Plus size={16} />
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                                    {lessons.length > 0 ? (
+                                        lessons.map((lesson, index) => (
+                                            <div key={lesson.id} className="p-3 border border-[#DFE1E6] dark:border-slate-700 rounded-lg bg-white dark:bg-[#14181D] hover:border-blue-300 transition-colors group">
+                                                <div className="flex items-start gap-3">
+                                                    <span className="w-6 h-6 shrink-0 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded text-[11px] font-bold text-slate-500 mt-0.5">
+                                                        {String(index + 1).padStart(2, '0')}
+                                                    </span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-[13px] font-semibold text-[#172B4D] dark:text-slate-200 truncate" title={lesson.tieu_de}>
+                                                            {lesson.tieu_de}
+                                                        </p>
+                                                        <p className="text-[11px] text-[#6B778C] mt-1 flex items-center gap-1">
+                                                            {lesson.video_url ? '🎥 Có Video' : '📄 Bài viết'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Ẩn nút Sửa/Xóa bài học nếu form bị khóa */}
+                                                {!isLocked && (
+                                                    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                                                        <button
+                                                            onClick={() => navigate(`/instructor/lesson-detail/${lesson.id}`)}
+                                                            className="flex-1 flex justify-center items-center gap-1.5 px-2 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white rounded-md transition-all"
+                                                        >
+                                                            <FileEdit size={12} />
+                                                            <span className="text-[11px] font-semibold">Sửa</span>
+                                                        </button>
+
+                                                        <button
+                                                            onClick={() => handleDeleteLesson(lesson.id)}
+                                                            className="flex-1 flex justify-center items-center gap-1.5 px-2 py-1.5 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-md transition-all"
+                                                        >
+                                                            <Trash2 size={12} />
+                                                            <span className="text-[11px] font-semibold">Xóa</span>
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="text-center py-8 bg-[#F4F5F7] dark:bg-[#14181D] rounded-lg border border-dashed border-[#DFE1E6] dark:border-slate-700">
+                                            <p className="text-[13px] text-[#6B778C] dark:text-slate-400">Chưa có bài học nào.</p>
+                                        </div>
+                                    )}
+
                                 </div>
                             </section>
                         )}
@@ -382,6 +465,7 @@ export default function InstructorCourseDetail() {
                 </div>
             </div>
 
+            {/* Modal Xóa Khóa Học */}
             {isDeleteModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                     <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
@@ -389,9 +473,10 @@ export default function InstructorCourseDetail() {
                             <AlertTriangle size={28} />
                             <h3 className="text-xl font-bold">Cảnh báo xóa khóa học</h3>
                         </div>
-                        <p className="text-[#434654] mb-6">
-                            Bạn có chắc chắn muốn xóa khóa học này không? <br /><br />
-                            <span className="font-semibold text-[#172B4D]">Lưu ý:</span> Nếu khóa học này <b>đã có người mua</b>, hệ thống sẽ tự động chuyển sang trạng thái <b>ẨN</b> thay vì xóa hoàn toàn.
+
+                        <p className="text-[#434654] dark:text-slate-300 mb-6">
+                            Bạn có chắc chắn muốn xóa khóa học này không?
+
                         </p>
                         <div className="flex justify-end gap-3">
                             <button

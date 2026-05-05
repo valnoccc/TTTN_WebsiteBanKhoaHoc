@@ -89,6 +89,11 @@ export class CoursesService {
 
     if (!course) throw new ForbiddenException('Bạn không có quyền sửa khóa học này');
 
+
+    // THÊM ĐOẠN NÀY: Chặn cập nhật nếu đang chờ duyệt hoặc đã xuất bản
+    if (course.trang_thai === 'PENDING' || course.trang_thai === 'PUBLISHED') {
+      throw new ForbiddenException('Không thể chỉnh sửa khóa học đang chờ duyệt hoặc đã xuất bản.');
+    }
     await this.khoaHocRepository.update(courseId, payload);
     return await this.khoaHocRepository.findOne({ where: { id: courseId } });
   }
