@@ -68,7 +68,11 @@ export class CoursesController {
     @UploadedFile() file: Express.Multer.File
   ) {
     try {
-      const payload = { ...courseData };
+      const payload = {
+        ...courseData,
+        gia: courseData.gia ? Number(courseData.gia) : 0,
+        id_danh_muc: courseData.id_danh_muc ? Number(courseData.id_danh_muc) : null,
+      };
       if (file) {
         payload.hinh_anh = `/images/${file.filename}`;
       }
@@ -89,4 +93,6 @@ export class CoursesController {
   async remove(@Param('id') id: string, @Request() req) {
     return this.coursesService.remove(Number(id), req.user.sub);
   }
+
+
 }

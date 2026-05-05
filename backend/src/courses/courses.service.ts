@@ -73,7 +73,6 @@ export class CoursesService {
   // HÀM CẬP NHẬT KHÓA HỌC THẬT SỰ
   // ========================================================
   async updateCourse(courseId: number, instructorId: number, payload: any) {
-    // 1. Kiểm tra quyền sở hữu
     const course = await this.khoaHocRepository.findOne({
       where: { id: courseId, id_giang_vien: instructorId }
     });
@@ -82,10 +81,12 @@ export class CoursesService {
       throw new ForbiddenException('Bạn không có quyền sửa khóa học này');
     }
 
-    // 2. Thực hiện lệnh UPDATE xuống Database
-    await this.khoaHocRepository.update(courseId, payload);
+    // THÊM ĐOẠN NÀY: Chặn cập nhật nếu đang chờ duyệt hoặc đã xuất bản
+    if (course.trang_thai === 'PENDING' || course.trang_thai === 'PUBLISHED') {
+      throw new ForbiddenException('Không thể chỉnh sửa khóa học đang chờ duyệt hoặc đã xuất bản.');
+    }
 
-    // 3. Trả về dữ liệu mới sau khi đã cập nhật
+    await this.khoaHocRepository.update(courseId, payload);
     return await this.khoaHocRepository.findOne({ where: { id: courseId } });
   }
 }
