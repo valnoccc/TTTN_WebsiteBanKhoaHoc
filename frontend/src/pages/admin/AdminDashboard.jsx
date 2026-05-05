@@ -12,7 +12,7 @@ export default function AdminDashboard() {
                 </div>
                 <div className="flex items-center gap-4 text-xs">
                     <span className="font-medium">{user?.fullName}</span>
-                    <button onClick={() => { localStorage.clear(); window.location.href = '/login' }} className="hover:text-red-500">
+                    <button onClick={() => { localStorage.clear(); window.location.href = '/' }} className="hover:text-red-500">
                         <LogOut size={14} />
                     </button>
                 </div>

@@ -24,7 +24,7 @@ export default function InstructorLayout({ children }) {
     // 3. Hàm xử lý đăng xuất
     const handleLogout = () => {
         localStorage.clear();
-        navigate('/login');
+        navigate('/');
         window.location.reload();
     };
 
